@@ -29,7 +29,7 @@ func NewContainer(ctx context.Context, config *config.Config) (*Container, error
 
 	// initialize the database
 	dbConfig := getDbConfig(config)
-	db := database.NewDatabaseService(dbConfig)
+	db := database.NewDatabaseService(dbConfig, logger)
 	dbPool, err := db.Connect(ctx)
 	if err != nil {
 		logger.Fatal("Failed to connect to database: %v", zap.Error(err))
@@ -39,6 +39,7 @@ func NewContainer(ctx context.Context, config *config.Config) (*Container, error
 	return &Container{
 		Config: config,
 		Logger: logger,
+		DBPool: dbPool,
 	}, nil
 }
 
@@ -49,13 +50,13 @@ func (c *Container) Close() {
 // getDbConfig returns the database configuration for the scheduler service.
 func getDbConfig(config *config.Config) *database.DbConfig {
 	return &database.DbConfig{
-		DBHost:                config.DbHost,
-		DBPort:                fmt.Sprintf("%d", config.DbPort),
-		DBUser:                config.DbUser,
-		DBPassword:            config.DbPassword,
-		DBName:                config.DbName,
-		DBSchema:              config.DbSchema,
-		SSLMode:               config.SSLMode,
+		DBHost:                config.DBHost,
+		DBPort:                fmt.Sprintf("%d", config.DBPort),
+		DBUser:                config.DBUser,
+		DBPassword:            config.DBPassword,
+		DBName:                config.DBName,
+		DBSchema:              config.DBSchema,
+		SSLMode:               config.DBSSLMode,
 		DBMaxConn:             10,
 		DBMinConn:             1,
 		DBConnMaxLifetime:     10 * time.Minute,

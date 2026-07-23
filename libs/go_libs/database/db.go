@@ -3,10 +3,10 @@ package database
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 type DbConfig struct {
@@ -27,11 +27,13 @@ type DbConfig struct {
 
 type DatabaseService struct {
 	dbConfig DbConfig
+	logger   *zap.Logger
 }
 
-func NewDatabaseService(cfg *DbConfig) *DatabaseService {
+func NewDatabaseService(cfg *DbConfig, logger *zap.Logger) *DatabaseService {
 	return &DatabaseService{
 		dbConfig: *cfg,
+		logger:   logger,
 	}
 }
 
@@ -47,12 +49,12 @@ func (ds *DatabaseService) Connect(ctx context.Context) (*pgxpool.Pool, error) {
 	}
 
 	connectDeadline := time.Now().Add(8 * time.Second)
-	log.Println("Database connection attempt")
+	ds.logger.Info("Database connection attempt")
 	for {
 		err = db.Ping(ctx)
 		if err == nil {
-			log.Println("Successfully Pinged the database")
-			log.Println("Database connection successful")
+			ds.logger.Info("Successfully Pinged the database")
+			ds.logger.Info("Database connection successful")
 			return db, nil
 		}
 
@@ -66,7 +68,7 @@ func (ds *DatabaseService) Connect(ctx context.Context) (*pgxpool.Pool, error) {
 			db.Close()
 			return nil, fmt.Errorf("context cancelled: %v", ctx.Err())
 		case <-time.After(2000 * time.Millisecond):
-			log.Println("Failed to connect to database, retrying...")
+			ds.logger.Info("Failed to connect to database, retrying...")
 		}
 	}
 }

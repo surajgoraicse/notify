@@ -60,7 +60,7 @@ CREATE TRIGGER set_updated_at_notification_templates
     EXECUTE FUNCTION set_updated_at();
 
 CREATE INDEX IF NOT EXISTS idx_templates_lookup
-    ON notification_templates (name, channel, locale)
+    ON notification_templates (name, channel)
     WHERE is_active = TRUE;
 
 

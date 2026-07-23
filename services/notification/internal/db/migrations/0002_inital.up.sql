@@ -40,7 +40,7 @@ CREATE TYPE delivery_status AS ENUM (
 -- ---------------------------------------------------------
 -- 1. notification_templates
 -- ---------------------------------------------------------
-CREATE TABLE notification_templates (
+CREATE TABLE IF NOT EXISTS notification_templates (
     id              UUID PRIMARY KEY DEFAULT uuidv7(),
     name            VARCHAR(150) NOT NULL,       -- e.g. 'order_confirmed'
     channel         channel_type NOT NULL,
@@ -59,7 +59,7 @@ CREATE TRIGGER set_updated_at_notification_templates
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX idx_templates_lookup
+CREATE INDEX IF NOT EXISTS idx_templates_lookup
     ON notification_templates (name, channel, locale)
     WHERE is_active = TRUE;
 
@@ -70,7 +70,7 @@ CREATE INDEX idx_templates_lookup
 --    The logical request - "notify user X about event Y"
 --    before it's split into per-channel deliveries.
 -- ---------------------------------------------------------
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
     id                UUID PRIMARY KEY DEFAULT uuidv7(),
     idempotency_key   VARCHAR(255),               -- client-supplied or hash(payload+user+template)
     client_id         VARCHAR(100) NOT NULL,      -- e.g. 'flipkart', 'zomato'
@@ -97,10 +97,10 @@ CREATE UNIQUE INDEX uq_notifications_idempotency_key
     ON notifications (client_id, idempotency_key)
     WHERE idempotency_key IS NOT NULL;
 
-CREATE INDEX idx_notifications_user_id   ON notifications (user_id);
-CREATE INDEX idx_notifications_status    ON notifications (status);
-CREATE INDEX idx_notifications_created   ON notifications (created_at);
-CREATE INDEX idx_notifications_scheduled ON notifications (scheduled_at)
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id   ON notifications (user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_status    ON notifications (status);
+CREATE INDEX IF NOT EXISTS idx_notifications_created   ON notifications (created_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_scheduled ON notifications (scheduled_at)
     WHERE scheduled_at IS NOT NULL AND status = 'pending';
 
 
@@ -110,7 +110,7 @@ CREATE INDEX idx_notifications_scheduled ON notifications (scheduled_at)
 --    workers claim, attempt, and update. Maps 1:1 with a
 --    message on a Kafka channel topic.
 -- ---------------------------------------------------------
-CREATE TABLE notification_deliveries (
+CREATE TABLE IF NOT EXISTS notification_deliveries (
     id                  UUID PRIMARY KEY DEFAULT uuidv7(),
     notification_id     UUID NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
     channel             channel_type NOT NULL,
@@ -135,19 +135,19 @@ CREATE TRIGGER set_updated_at_notification_deliveries
     EXECUTE FUNCTION set_updated_at();
 
 
-CREATE INDEX idx_deliveries_notification_id ON notification_deliveries (notification_id);
+CREATE INDEX IF NOT EXISTS idx_deliveries_notification_id ON notification_deliveries (notification_id);
 
 -- used by the retry scheduler: "give me everything due for retry"
-CREATE INDEX idx_deliveries_retry_due
+CREATE INDEX IF NOT EXISTS idx_deliveries_retry_due
     ON notification_deliveries (next_retry_at)
     WHERE status = 'failed' AND next_retry_at IS NOT NULL;
 
 -- used to match inbound provider webhooks back to a delivery
-CREATE INDEX idx_deliveries_provider_message_id
+CREATE INDEX IF NOT EXISTS idx_deliveries_provider_message_id
     ON notification_deliveries (provider, provider_message_id)
     WHERE provider_message_id IS NOT NULL;
 
-CREATE INDEX idx_deliveries_status ON notification_deliveries (status);
+CREATE INDEX IF NOT EXISTS idx_deliveries_status ON notification_deliveries (status);
 
 
 
@@ -157,7 +157,7 @@ CREATE INDEX idx_deliveries_status ON notification_deliveries (status);
 --    write a row here. Keeps notification_deliveries lean
 --    (just current state) while preserving full history.
 -- ---------------------------------------------------------
-CREATE TABLE delivery_attempts (
+CREATE TABLE IF NOT EXISTS delivery_attempts (
     id                UUID PRIMARY KEY DEFAULT uuidv7(),
     delivery_id       UUID NOT NULL REFERENCES notification_deliveries(id) ON DELETE CASCADE,
     attempt_number    INT NOT NULL,
@@ -173,7 +173,7 @@ CREATE TRIGGER set_updated_at_delivery_attempts
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX idx_attempts_delivery_id ON delivery_attempts (delivery_id);
+CREATE INDEX IF NOT EXISTS idx_attempts_delivery_id ON delivery_attempts (delivery_id);
 
 
 -- ---------------------------------------------------------
@@ -182,7 +182,7 @@ CREATE INDEX idx_attempts_delivery_id ON delivery_attempts (delivery_id);
 --    callbacks, SES bounce notifications, FCM delivery
 --    receipts). Processed async to update deliveries.
 -- ---------------------------------------------------------
-CREATE TABLE provider_webhook_events (
+CREATE TABLE IF NOT EXISTS provider_webhook_events (
     id                   UUID PRIMARY KEY DEFAULT uuidv7(),
     delivery_id          UUID REFERENCES notification_deliveries(id),  -- nullable until matched
     provider              VARCHAR(50) NOT NULL,
@@ -198,9 +198,9 @@ CREATE TRIGGER set_updated_at_provider_webhook_events
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX idx_webhook_events_unprocessed
+CREATE INDEX IF NOT EXISTS idx_webhook_events_unprocessed
     ON provider_webhook_events (received_at)
     WHERE processed = FALSE;
 
-CREATE INDEX idx_webhook_events_provider_msg_id
+CREATE INDEX IF NOT EXISTS idx_webhook_events_provider_msg_id
     ON provider_webhook_events (provider, provider_message_id);

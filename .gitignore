@@ -20,9 +20,11 @@ bin/
 
 
 # env
-.env
-.env.prod
-.env.local
+!.env.example
+.env*
+# .env.prod
+# .env.local
+# .env.*
 
 
 # docker-compose volume

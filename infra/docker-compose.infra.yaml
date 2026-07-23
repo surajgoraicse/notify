@@ -1,0 +1,74 @@
+services:
+  kafka:
+      image: apache/kafka:latest
+      container_name: kafka
+      ports:
+        - ${KAFKA_PORT:?ERROR-KAFKA_PORT is not set}:9092
+      env_file:
+        - .env.infra
+      environment:
+        # Configure KRaft mode settings
+        KAFKA_NODE_ID: 1
+        KAFKA_PROCESS_ROLES: 'broker,controller'
+        KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
+
+        # Define internal and external listeners
+        KAFKA_LISTENERS: 'CONTROLLER://0.0.0.0:29093,PLAINTEXT://0.0.0.0:29092,EXTERNAL://0.0.0.0:${KAFKA_PORT:?ERROR-KAFKA_PORT is not set}'
+        KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:29092,EXTERNAL://localhost:${KAFKA_PORT:?ERROR-KAFKA_PORT is not set}'
+        KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT'
+        KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+        KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+
+        # Cluster and Topic configurations
+        KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+        KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+        KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+        KAFKA_LOG_DIRS: '/var/lib/kafka/data'
+      volumes:
+        - notify_kafka_data:/var/lib/kafka/data
+      networks:
+        - notify_network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "${KAFKA_UI_PORT:?ERROR-KAFKA_UI_PORT is not set}:8080"
+    env_file:
+      - .env.infra
+    environment:
+      DYNAMIC_CONFIG_ENABLED: 'true'
+      KAFKA_CLUSTERS_0_NAME: 'local-cluster'
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'kafka:29092'
+    depends_on:
+      - kafka
+    networks:
+      - notify_network
+
+# database setup
+  postgres:
+    container_name: postgres
+    image: postgres:18-alpine
+    environment:
+        POSTGRES_USER: ${DB_USER:?ERROR-DB_USER is not set}
+        POSTGRES_PASSWORD: ${DB_PASSWORD:?ERROR-DB_PASSWORD is not set}
+        POSTGRES_DB: ${DB_NAME:?ERROR-DB_NAME is not set}
+    ports:
+        - ${DB_PORT:?ERROR-DB_PORT is not set}:5432
+    env_file:
+        - .env.infra
+    volumes:
+        - notify_pg_data:/var/lib/postgresql
+    networks:
+        - notify_network
+
+networks:
+  notify_network:
+    name: notify_network
+    driver: bridge
+
+volumes:
+  notify_pg_data:
+    name: notify_pg_data
+  notify_kafka_data:
+    name: notify_kafka_data

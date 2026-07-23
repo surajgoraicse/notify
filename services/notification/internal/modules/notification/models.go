@@ -1,6 +1,7 @@
 package notification
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -11,6 +12,14 @@ const (
 	PriorityMedium Priority = "medium"
 	PriorityLow    Priority = "low"
 )
+
+func ParsePriority(s string) (Priority, error) {
+	p := Priority(s)
+	if !p.IsValid() {
+		return "", fmt.Errorf("invalid priority: %s", s)
+	}
+	return p, nil
+}
 
 func (p Priority) IsValid() bool {
 	switch p {
@@ -32,6 +41,14 @@ const (
 	ChannelSMS   Channel = "sms"
 	ChannelPush  Channel = "push"
 )
+
+func ParseChannel(s string) (Channel, error) {
+	c := Channel(s)
+	if !c.IsValid() {
+		return "", fmt.Errorf("invalid channel: %s", s)
+	}
+	return c, nil
+}
 
 func (c Channel) IsValid() bool {
 	switch c {
@@ -57,6 +74,14 @@ const (
 	StatusFailed     Status = "failed"
 	StatusCancelled  Status = "cancelled"
 )
+
+func ParseStatus(s string) (Status, error) {
+	st := Status(s)
+	if !st.IsValid() {
+		return "", fmt.Errorf("invalid status: %s", s)
+	}
+	return st, nil
+}
 
 func (s Status) IsValid() bool {
 	switch s {
